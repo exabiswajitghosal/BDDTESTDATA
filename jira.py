@@ -13,7 +13,7 @@ load_dotenv()
 def get_boardid(jira_url, email, password):
     board_id = []
     url = f"{jira_url}/rest/agile/1.0/board/"
-    print(url)
+    # print(url)
     try:
         response = requests.get(url, auth=(email, password))
         for value in response.json()['values']:
@@ -27,7 +27,7 @@ def get_boardid(jira_url, email, password):
 def get_sprintid(jira_url, email, password, board_id):
     sprint_id = []
     url = f"{jira_url}/rest/agile/1.0/board/{board_id}/sprint/"
-    print(url)
+    # print(url)
     try:
         response = requests.get(url, auth=(email, password))
         for value in response.json()['values']:
@@ -42,7 +42,7 @@ def get_sprintid(jira_url, email, password, board_id):
 def get_issues(jira_url, email, password, board_id, sprint_id):
     user_story = []
     url = f"{jira_url}/rest/agile/1.0/board/{board_id}/sprint/{sprint_id}/issue"
-    print(url)
+    # print(url)
     try:
         response = requests.get(url, auth=(email, password))
         for issue in response.json()['issues']:
