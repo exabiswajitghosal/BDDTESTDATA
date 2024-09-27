@@ -64,10 +64,6 @@ def get_bdd_jira_sprintid():
         email = request.form.get('email')
         password = request.form.get('password')
         board_id = request.form.get('board_id')
-        print(jira_url)
-        print(email)
-        print(password)
-        print(board_id)
         sprint_ids = get_sprintid(jira_url, email, password, board_id)
         return jsonify(sprint_ids=sprint_ids)
 

@@ -21,7 +21,7 @@ AWS_TEST_OUTPUT_BUCKET = os.getenv("aws_test_output_bucket")
 
 genai.configure(api_key=API_KEY)
 generation_config = {
-    "temperature": 0.9,
+    "temperature": 0.1,
     "top_p": 1,
     "top_k": 1,
     "max_output_tokens": 2048,
@@ -70,10 +70,20 @@ def upload_file_to_s3(username):
 def generate_bdd_from_jira(user_story):
     responses = []
     for story in user_story:
-        convo = model.start_chat()
-        convo.send_message("Generate BDD scenario in feature file format for the  user story " + story)
-        response = convo.last.text
-        responses.append([story, response])
+        try:
+            convo = model.start_chat()
+            convo.send_message("Generate BDD scenario in feature file format for the user story: " + story)
+            response = convo.last.text
+            if response:
+                responses.append([story, response])
+                print(f"Generated response for story '{story}': {response}")
+            else:
+                print(f"No response generated for story '{story}'")
+        except Exception as e:
+            print(f"Error processing story '{story}': {str(e)}")
+    if not responses:
+        print("No responses were generated.")
+        return None
     df1 = pd.DataFrame(responses)
     with io.StringIO() as csv_buffer:
         df1.to_csv(csv_buffer, index=False)
@@ -127,27 +137,35 @@ def generate_bdd_scenario(username):
             return None
 
 
+def get_column_names(contents):
+    columns_name = ""
+    for line in contents.split("\n"):
+        column = line.split(":")[0]
+        columns_name += column + ","
+    return columns_name
+
+
 def generate_test_data(lob, state, no_of_test_cases):
     s3_client_data = s3_client.get_object(Bucket=AWS_LOB_FILES, Key=f'{lob}.txt')
-    contents = s3_client_data['Body'].read()  # Reading the txt file
-    responses = []
+    contents = s3_client_data['Body'].read().decode('utf-8')  # Reading the txt file
+    column_names = get_column_names(contents=contents)
+    responses = [column_names]
     round_of_test_data = int(no_of_test_cases) // 10
-    for test_cases_no in range(round_of_test_data + 1):
+    for test_cases_no in range(round_of_test_data):
         # Generate response
         prompt = (f"Generate 10 test data for a {lob} policy according to the following criteria:\n"
-                  f"include state {state} and {lob} for the line of business  using the following data\n"
-                  + contents.decode('utf-8') + "\n in a csv format only.")
+                  f"Column Names: {column_names}\n"
+                  f"include state {state} and {lob} for the line of business  using the following data:\n"
+                  f" {contents} in a csv format without any formatting or markers and no preambles."
+                  f"Must include all the data."
+                  f" Don't Include column names in the output."
+                  )
         # print(prompt)
         convo = model.start_chat()
         convo.send_message(prompt)
         response = convo.last.text
         # Save response
-        if test_cases_no == 0:
-            responses.append(response)
-        else:
-            response = "\n".join(response.split("\n")[1:])
-            responses.append(response)
-        # responses_bytes += response.encode('utf-8')
+        responses.append(response.strip())
     responses_bytes = ("\n".join([response for response in responses])).encode('utf-8')
     ts = str(int(round(time.time())))
     response = s3_client.put_object(
